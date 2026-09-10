@@ -50,11 +50,23 @@ jobs:
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const pr = context.payload.pull_request;
-            const branch = pr.head.ref;
-            const ref = `heads/${branch}`;
+            const headBranch = pr.head.ref;
+            const baseBranch = pr.base.ref;
+
+            // Safety guards: never delete the base branch and only delete Dependabot branches
+            if (headBranch === baseBranch) {
+              console.log(`Skipping deletion because head branch (${headBranch}) equals base branch (${baseBranch}).`);
+              return;
+            }
+            if (!headBranch.startsWith('dependabot/')) {
+              console.log(`Skipping deletion because head branch (${headBranch}) is not a Dependabot branch.`);
+              return;
+            }
+
+            const ref = `heads/${headBranch}`;
             try {
               await github.rest.git.deleteRef({ owner, repo, ref });
-              core.info(`Deleted branch ${branch}`);
-            } catch (err) {
-              core.info(`Failed to delete branch ${branch}: ${err.message}`);
+              console.log(`Deleted branch: ${headBranch}`);
+            } catch (error) {
+              console.log(`Failed to delete branch ${headBranch}: ${error.message}`);
             }
