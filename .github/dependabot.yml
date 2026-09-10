@@ -7,7 +7,7 @@ version: 2
 updates:
   - package-ecosystem: "npm"
     directory: "/"
-    target-branch: "staging" # Directs all PRs to staging
+    target-branch: "main" # Directs all PRs to main (was staging)
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
