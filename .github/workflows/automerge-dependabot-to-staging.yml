@@ -1,4 +1,4 @@
-name: Test & auto-merge Dependabot PRs to staging
+name: Test, auto-merge Dependabot PRs to staging and delete branch
 
 on:
   pull_request:
@@ -6,7 +6,7 @@ on:
     branches: [staging]
 
 permissions:
-  contents: read
+  contents: write   # required to delete branch refs
   pull-requests: write
   checks: read
 
@@ -27,7 +27,8 @@ jobs:
           node-version: '18'
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm ci
 
       - name: Run build and tests
         run: |
@@ -39,3 +40,21 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           mergeMethod: squash
+
+      - name: Delete branch after merge
+        if: github.event.pull_request.merged == true
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pr = context.payload.pull_request;
+            const branch = pr.head.ref;
+            const ref = `heads/${branch}`;
+            try {
+              await github.rest.git.deleteRef({ owner, repo, ref });
+              core.info(`Deleted branch ${branch}`);
+            } catch (err) {
+              core.info(`Failed to delete branch ${branch}: ${err.message}`);
+            }
