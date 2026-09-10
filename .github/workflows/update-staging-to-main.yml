@@ -1,0 +1,77 @@
+name: Update staging and open PR to main
+
+on:
+  schedule:
+    - cron: '0 3 * * 1' # Weekly on Monday at 03:00 UTC
+  workflow_dispatch:
+
+jobs:
+  update-deps:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout staging
+        uses: actions/checkout@v4
+        with:
+          ref: staging
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install npm-check-updates
+        run: npm install -g npm-check-updates
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Upgrade package versions
+        run: npx npm-check-updates -u
+
+      - name: Install updated dependencies
+        run: npm install
+
+      - name: Create branch, commit and push
+        id: create_branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          branch="deps/update-from-staging-${{ github.run_number }}-$(date +%s)"
+          git checkout -b "$branch"
+          git add package.json package-lock.json yarn.lock || true
+          if git diff --staged --quiet; then
+            echo "No dependency updates found"
+            echo "no_changes=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          git commit -m "chore(deps): update dependencies from staging"
+          git push --set-upstream origin "$branch"
+          echo "BRANCH=$branch" >> $GITHUB_ENV
+          echo "no_changes=false" >> $GITHUB_OUTPUT
+
+      - name: Create PR to main
+        if: steps.create_branch.outputs.no_changes == 'false'
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const branch = process.env.BRANCH;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const title = "chore(deps): update dependencies (from staging)";
+            const body = "Automated dependency updates created from staging";
+            const base = "main";
+
+            const { data: pr } = await github.rest.pulls.create({
+              owner,
+              repo,
+              title,
+              head: branch,
+              base,
+              body,
+            });
+
+            console.log("Created PR:", pr.html_url)

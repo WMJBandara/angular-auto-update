@@ -1,0 +1,39 @@
+# This workflow will do a clean installation of node dependencies, cache/restore them, build the source code, and run tests across different versions of node
+# For more information, see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
+
+name: Staging CI & Dependabot Auto-Merge
+
+on:
+  pull_request:
+    branches: [ staging ]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  test-and-automerge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Angular Tests
+        run: npm run test:ci # Ensure package.json test script uses ChromeHeadless
+
+      - name: Auto-merge Dependabot PRs
+        if: github.actor == 'dependabot[bot]' && success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr review ${{ github.event.pull_request.html_url }} --approve
+          gh pr merge ${{ github.event.pull_request.html_url }} --auto --rebase
