@@ -1,0 +1,60 @@
+name: Test, auto-merge Dependabot PRs to staging and delete branch
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    branches: [staging]
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+
+jobs:
+  test-and-merge:
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Use Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: |
+          npm ci
+
+      - name: Run build and tests
+        run: |
+          npm run build --if-present
+          npm test --if-present
+
+      - name: Auto-merge if tests pass
+        uses: pascalgn/automerge-action@v0.15.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          mergeMethod: squash
+
+      - name: Delete branch after merge
+        if: github.event.pull_request.merged == true
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pr = context.payload.pull_request;
+            const branch = pr.head.ref;
+            const ref = `heads/${branch}`;
+            try {
+              await github.rest.git.deleteRef({ owner, repo, ref });
+              core.info(`Deleted branch ${branch}`);
+            } catch (err) {
+              core.info(`Failed to delete branch ${branch}: ${err.message}`);
+            }
