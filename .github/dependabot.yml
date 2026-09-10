@@ -1,26 +1,17 @@
-# Dependabot configuration - target staging so PRs are opened against staging for verification
+# To get started with Dependabot version updates, you'll need to specify which
+# package ecosystems to update and where the package manifests are located.
+# Dependabot configuration must live on the repository's default branch (main).
+# Dependabot will open PRs against the branch set by target-branch.
+
 version: 2
 updates:
   - package-ecosystem: "npm"
     directory: "/"
-    target-branch: "staging"
+    target-branch: "staging"    # Dependabot opens PRs against staging for verification
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
     ignore:
-      # Ignore major version upgrades to avoid breaking changes automatically
+      # Avoid automatically proposing/merging major (breaking) upgrades
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
-
-# Automatically merge non-breaking updates (optional):
-# automerged_updates will attempt to merge selected updates when status checks pass.
-# We merge semver-patch and semver-minor updates automatically into staging so you can
-# verify them in the staging environment. If you prefer to review all PRs manually,
-# remove the automerged_updates section.
-automerged_updates:
-  - match:
-      update_type: "version-update:semver-patch"
-    merge_method: "squash"
-  - match:
-      update_type: "version-update:semver-minor"
-    merge_method: "squash"
