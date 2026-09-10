@@ -6,7 +6,7 @@ on:
     branches: [staging]
 
 permissions:
-  contents: write   # required to delete branch refs
+  contents: write
   pull-requests: write
   checks: read
 
